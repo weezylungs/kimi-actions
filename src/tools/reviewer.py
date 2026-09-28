@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import os
-import subprocess
+import shutil
 import tempfile
 import uuid
 from typing import List, Optional, Tuple
@@ -123,35 +123,61 @@ class Reviewer(BaseTool):
 
     def _prepare_review_workspace(self, work_dir: str, head_sha: str) -> None:
         workspace = os.environ.get("GITHUB_WORKSPACE")
-        if not workspace or not os.path.isdir(os.path.join(workspace, ".git")):
+        git_dir = os.path.join(workspace, ".git") if workspace else None
+
+        if not workspace or not os.path.isdir(workspace) or not os.path.isdir(git_dir):
             raise RuntimeError("Authenticated GitHub workspace is unavailable")
 
-        try:
-            subprocess.run(
-                ["git", "config", "--global", "--add", "safe.directory", workspace],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            subprocess.run(
-                ["git", "clone", "--no-hardlinks", workspace, work_dir],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            subprocess.run(
-                ["git", "-C", work_dir, "checkout", "--detach", head_sha],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.CalledProcessError as exc:
-            detail = (exc.stderr or exc.stdout or str(exc)).strip()
+        actual_sha = self._read_checked_out_sha(git_dir)
+        if actual_sha and actual_sha != head_sha:
             raise RuntimeError(
-                f"Failed to prepare isolated review workspace: {detail}"
+                f"Checked-out workspace SHA {actual_sha} does not match PR head {head_sha}"
+            )
+
+        try:
+            shutil.copytree(
+                workspace,
+                work_dir,
+                dirs_exist_ok=True,
+                symlinks=True,
+            )
+        except OSError as exc:
+            raise RuntimeError(
+                f"Failed to copy authenticated review workspace: {exc}"
             ) from exc
 
         logger.info("Prepared isolated review workspace at PR head %s", head_sha)
+
+    @staticmethod
+    def _read_checked_out_sha(git_dir: str) -> Optional[str]:
+        head_path = os.path.join(git_dir, "HEAD")
+        try:
+            with open(head_path, "r", encoding="utf-8") as handle:
+                head = handle.read().strip()
+        except OSError as exc:
+            raise RuntimeError(f"Unable to read checked-out Git HEAD: {exc}") from exc
+
+        if not head.startswith("ref: "):
+            return head or None
+
+        ref_name = head[5:].strip()
+        ref_path = os.path.join(git_dir, *ref_name.split("/"))
+        if os.path.isfile(ref_path):
+            with open(ref_path, "r", encoding="utf-8") as handle:
+                return handle.read().strip() or None
+
+        packed_refs = os.path.join(git_dir, "packed-refs")
+        if os.path.isfile(packed_refs):
+            with open(packed_refs, "r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line or line.startswith("#") or line.startswith("^"):
+                        continue
+                    sha, _, name = line.partition(" ")
+                    if name == ref_name:
+                        return sha
+
+        return None
 
     async def _run_agent_review(
         self,
@@ -307,12 +333,14 @@ suggestions:
         )
 
         if included_chunks:
-            lines.extend([
-                "<details>",
-                "<summary>Show a summary per file</summary>\n",
-                "| File | Description |",
-                "|------|-------------|",
-            ])
+            lines.extend(
+                [
+                    "<details>",
+                    "<summary>Show a summary per file</summary>\n",
+                    "| File | Description |",
+                    "|------|-------------|",
+                ]
+            )
             for chunk in included_chunks:
                 desc = file_summaries.get(chunk.filename)
                 if not desc:
@@ -329,11 +357,18 @@ suggestions:
 
         if suggestions:
             lines.append("**Issues found:**")
-            icons = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🔵"}
+            icons = {
+                "critical": "🔴",
+                "high": "🟠",
+                "medium": "🟡",
+                "low": "🔵",
+            }
             for suggestion in suggestions[:5]:
                 icon = icons.get(suggestion.severity.value, "⚪")
                 filename = suggestion.relevant_file or "unknown"
-                issue = (suggestion.one_sentence_summary or "").replace("\n", " ").strip()
+                issue = (
+                    suggestion.one_sentence_summary or ""
+                ).replace("\n", " ").strip()
                 lines.append(f"- {icon} `{filename}`: {issue}")
             if len(suggestions) > 5:
                 lines.append(f"- ... and {len(suggestions) - 5} more")
@@ -364,7 +399,18 @@ suggestions:
                 output.append(f"## Security Scan Output\n```text\n{result}\n```")
 
         if "context_gatherer" in skill.scripts:
-            result = skill.run_script("context_gatherer", diff=diff, repo=".")
+            context_diff = diff[:60000]
+            if len(diff) > len(context_diff):
+                logger.info(
+                    "Truncated context_gatherer input from %s to %s characters",
+                    len(diff),
+                    len(context_diff),
+                )
+            result = skill.run_script(
+                "context_gatherer",
+                diff=context_diff,
+                repo=".",
+            )
             if result and result.strip() != "No additional context found.":
                 output.append(f"## Related Context\n{result}")
 
@@ -372,9 +418,18 @@ suggestions:
 
     def _build_system_prompt(self, skill, script_output: str) -> str:
         level_text = {
-            "strict": "Review Level: Strict - perform thorough analysis including thread safety, simulations, error handling, cache collisions, and the strict checklist",
-            "normal": "Review Level: Normal - focus on functional issues and common bugs",
-            "gentle": "Review Level: Gentle - only flag critical issues that would break functionality",
+            "strict": (
+                "Review Level: Strict - perform thorough analysis including "
+                "thread safety, simulations, error handling, cache collisions, "
+                "and the strict checklist"
+            ),
+            "normal": (
+                "Review Level: Normal - focus on functional issues and common bugs"
+            ),
+            "gentle": (
+                "Review Level: Gentle - only flag critical issues that would "
+                "break functionality"
+            ),
         }
         parts = [
             skill.instructions,
@@ -436,4 +491,6 @@ suggestions:
             return result
         except Exception as exc:
             logger.exception("Failed to parse suggestions")
-            raise RuntimeError(f"Failed to parse Kimi review response: {exc}") from exc
+            raise RuntimeError(
+                f"Failed to parse Kimi review response: {exc}"
+            ) from exc
