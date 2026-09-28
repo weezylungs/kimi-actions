@@ -10,13 +10,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for building kimi-sdk and kimi-agent-sdk
-RUN pip install --no-cache-dir uv
+RUN pip install --no-cache-dir uv==0.7.22
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install semgrep for security scanning (optional, will skip if not available)
-RUN pip install --no-cache-dir semgrep || echo "Semgrep installation skipped"
+# Keep Semgrep in an isolated tool environment so its mcp dependency cannot
+# mutate kimi-agent-sdk's runtime dependency graph.
+ENV UV_TOOL_BIN_DIR=/usr/local/bin
+RUN uv tool install semgrep || echo "Semgrep installation skipped"
+
+# Fail the image build if the Action runtime has incompatible dependencies.
+RUN pip check
 
 # Configure git for agent operations
 RUN git config --global user.name "Kimi Bot" && \

@@ -161,7 +161,13 @@ class TestReviewerWorkspace:
         session.prompt = no_messages
         reviewer = Reviewer(MockGitHubClient())
 
-        with patch.dict(os.environ, {"KIMI_API_KEY": "test-key"}), patch(
+        with patch.dict(
+            os.environ,
+            {
+                "KIMI_API_KEY": "test-key",
+                "INPUT_KIMI_BASE_URL": "https://api.moonshot.ai/v1",
+            },
+        ), patch(
             "kimi_agent_sdk.Session.create", return_value=session
         ) as create:
             asyncio.run(

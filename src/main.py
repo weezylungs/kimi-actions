@@ -8,6 +8,7 @@ import sys
 
 from action_config import ActionConfig
 from github_client import GitHubClient
+from provider_auth import configure_agent_env, preflight_authentication
 from tools import Reviewer, Describe, Improve, Ask, Labels, Triage
 
 # Configure logging
@@ -631,6 +632,13 @@ def main():
 
     if not config.github_token:
         logger.error("GITHUB_TOKEN is required")
+        sys.exit(1)
+
+    try:
+        configure_agent_env(config.kimi_api_key, config.kimi_base_url, config.model)
+        preflight_authentication(config.kimi_api_key, config.kimi_base_url)
+    except (ValueError, RuntimeError) as exc:
+        logger.error("Provider authentication setup failed: %s", exc)
         sys.exit(1)
 
     # Load GitHub event

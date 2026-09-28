@@ -4,6 +4,7 @@ This configuration is set by the Action user in their workflow file:
   - uses: xiaoju/kimi-actions@v1
     with:
       kimi_api_key: ${{ secrets.KIMI_API_KEY }}
+      kimi_base_url: https://api.moonshot.ai/v1
       model: kimi-k2-thinking
       review_level: normal
 """
@@ -50,6 +51,7 @@ class ActionConfig:
     """
     # API settings
     kimi_api_key: str = ""
+    kimi_base_url: str = ""
     github_token: str = ""
     model: str = "kimi-k2-thinking"
 
@@ -88,6 +90,7 @@ class ActionConfig:
 
         # API keys (from GitHub Actions inputs)
         config.kimi_api_key = os.environ.get("INPUT_KIMI_API_KEY", "")
+        config.kimi_base_url = os.environ.get("INPUT_KIMI_BASE_URL", "")
         config.github_token = os.environ.get("INPUT_GITHUB_TOKEN", "")
 
         # General settings

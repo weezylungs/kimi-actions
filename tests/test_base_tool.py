@@ -68,6 +68,8 @@ def mock_action_config():
     with patch('tools.base.get_action_config') as mock:
         config = Mock()
         config.model = "kimi-k2-thinking"
+        config.kimi_api_key = ""
+        config.kimi_base_url = "https://api.moonshot.ai/v1"
         config.review_level = "normal"
         config.max_files = 10
         config.exclude_patterns = ["*.lock"]
@@ -500,7 +502,7 @@ list:
             api_key = tool.setup_agent_env()
             
             assert api_key == "test-key"
-            assert os.environ.get("KIMI_BASE_URL") == "https://api.moonshot.cn/v1"
+            assert os.environ.get("KIMI_BASE_URL") == "https://api.moonshot.ai/v1"
             assert os.environ.get("KIMI_MODEL_NAME") == "kimi-k2-thinking"
     
     def test_setup_agent_env_no_key(self, mock_action_config):

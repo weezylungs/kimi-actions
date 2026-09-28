@@ -7,7 +7,10 @@ branding:
 
 inputs:
   kimi_api_key:
-    description: 'Kimi API Key from Moonshot AI'
+    description: 'Moonshot Open Platform API key (not a Kimi Code/Kimi-for-Coding credential)'
+    required: true
+  kimi_base_url:
+    description: 'Moonshot Open Platform endpoint; use https://api.moonshot.ai/v1 for global or https://api.moonshot.cn/v1 for CN'
     required: true
   github_token:
     description: 'GitHub Token for PR operations'

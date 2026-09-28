@@ -77,13 +77,19 @@
 
 ## Quick Start
 
-### 1. Get Kimi API Key
+### 1. Get a Moonshot Open Platform API Key
 
-1. Visit [Moonshot AI Platform](https://platform.moonshot.cn/)
+1. Visit the Moonshot Open Platform for your account region
+   ([global](https://platform.moonshot.ai/) or [CN](https://platform.moonshot.cn/)).
 2. Register/Login
 3. Go to "API Key Management"
 4. Click "Create API Key"
 5. Copy the generated API Key
+
+This Action supports Moonshot Open Platform bearer API keys. Kimi Code or
+Kimi-for-Coding subscription credentials are a different credential product
+and are not supported by this Action's Open Platform `/v1` authentication.
+The Open Platform key and endpoint must belong to the same region.
 
 ### 2. Configure GitHub Secrets
 
@@ -147,6 +153,7 @@ jobs:
       - uses: xiaoju111a/kimi-actions@main
         with:
           kimi_api_key: ${{ secrets.KIMI_API_KEY }}
+          kimi_base_url: 'https://api.moonshot.ai/v1' # or https://api.moonshot.cn/v1
           github_token: ${{ secrets.GITHUB_TOKEN }}
           auto_review: 'false'
 
@@ -164,6 +171,7 @@ jobs:
       - uses: xiaoju111a/kimi-actions@main
         with:
           kimi_api_key: ${{ secrets.KIMI_API_KEY }}
+          kimi_base_url: 'https://api.moonshot.ai/v1' # or https://api.moonshot.cn/v1
           github_token: ${{ secrets.GITHUB_TOKEN }}
           auto_triage: 'false'
 ```
@@ -204,6 +212,7 @@ Use these commands in Issue comments:
   with:
     # Required
     kimi_api_key: ${{ secrets.KIMI_API_KEY }}
+    kimi_base_url: 'https://api.moonshot.ai/v1' # or https://api.moonshot.cn/v1
     github_token: ${{ secrets.GITHUB_TOKEN }}
     
     # Optional
