@@ -132,9 +132,8 @@ suggestions:
     label: security
     severity: critical
 ```"""
-        with patch('subprocess.run') as mock_run, \
+        with patch.object(reviewer, '_prepare_review_workspace'), \
              patch('asyncio.run', return_value=mock_agent_response):
-            mock_run.return_value = Mock(returncode=0)
             result = reviewer.run("owner/repo", 42)
 
         # Result could be empty (inline posted) or summary (fallback)

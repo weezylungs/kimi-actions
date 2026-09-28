@@ -8,6 +8,7 @@ import tempfile
 import uuid
 from typing import List, Optional, Tuple
 
+from kaos.path import KaosPath
 from models import CodeSuggestion, ReviewOptions, SeverityLevel, SuggestionControl
 from suggestion_service import SuggestionService
 from token_handler import DiffChunk
@@ -234,7 +235,7 @@ suggestions:
         text_parts = []
         try:
             async with await Session.create(
-                work_dir=work_dir,
+                work_dir=KaosPath(work_dir),
                 model=self.AGENT_MODEL,
                 yolo=True,
                 max_steps_per_turn=100,

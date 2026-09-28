@@ -11,6 +11,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple, List
 
+from kaos.path import KaosPath
 from action_config import get_action_config
 from github_client import GitHubClient
 from token_handler import TokenHandler, DiffChunker, select_model_for_diff, DiffChunk
@@ -240,7 +241,7 @@ class BaseTool(ABC):
         text_parts = []
         try:
             async with await Session.create(
-                work_dir=work_dir,
+                work_dir=KaosPath(work_dir),
                 model=self.AGENT_MODEL,
                 yolo=True,
                 max_steps_per_turn=100,

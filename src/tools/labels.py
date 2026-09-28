@@ -3,9 +3,10 @@
 import asyncio
 import json
 import logging
-
 import re
 from typing import List
+
+from kaos.path import KaosPath
 
 from tools.base import BaseTool, DIFF_LIMIT_ASK
 
@@ -102,7 +103,7 @@ Rules:
 
         try:
             async with await Session.create(
-                work_dir="/tmp",
+                work_dir=KaosPath("/tmp"),
                 model=self.AGENT_MODEL,
                 yolo=True,
                 max_steps_per_turn=100,

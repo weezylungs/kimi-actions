@@ -3,8 +3,10 @@
 import asyncio
 import logging
 import tempfile
-import yaml
 from typing import List
+
+from kaos.path import KaosPath
+import yaml
 
 from tools.base import BaseTool, DIFF_LIMIT_IMPROVE
 
@@ -119,7 +121,7 @@ suggestions:
 
         try:
             async with await Session.create(
-                work_dir=work_dir,
+                work_dir=KaosPath(work_dir),
                 model=self.AGENT_MODEL,
                 yolo=True,
                 max_steps_per_turn=100,
@@ -201,4 +203,3 @@ suggestions:
 
         lines.append(self.format_footer(f"{len(suggestions)} suggestions"))
         return "\n".join(lines)
-
