@@ -1,6 +1,7 @@
 """Tests for explicit Moonshot provider configuration and authentication."""
 
 import logging
+import json
 import os
 import sys
 from urllib.error import HTTPError
@@ -60,15 +61,46 @@ def test_api_key_and_endpoint_are_propagated():
 
 def test_preflight_uses_selected_cn_endpoint():
     response = Mock(status=200)
+    response.read.return_value = json.dumps(
+        {"data": [{"id": "configured-model"}]}
+    ).encode()
     response.__enter__ = Mock(return_value=response)
     response.__exit__ = Mock(return_value=False)
 
     with patch("provider_auth.urlopen", return_value=response) as urlopen:
-        preflight_authentication("provider-key", "https://api.moonshot.cn/v1")
+        model_ids = preflight_authentication(
+            "provider-key", "https://api.moonshot.cn/v1", "configured-model"
+        )
 
     request = urlopen.call_args.args[0]
     assert request.full_url == "https://api.moonshot.cn/v1/models"
     assert request.get_header("Authorization") == "Bearer provider-key"
+    assert model_ids == ["configured-model"]
+
+
+def test_preflight_rejects_missing_model_with_safe_alternatives(caplog):
+    secret = "never-log-this-provider-key"
+    response = Mock(status=200)
+    response.read.return_value = json.dumps(
+        {"data": [{"id": "kimi-k3"}, {"id": "kimi-coding-model"}]}
+    ).encode()
+    response.__enter__ = Mock(return_value=response)
+    response.__exit__ = Mock(return_value=False)
+
+    with caplog.at_level(logging.INFO), patch(
+        "provider_auth.urlopen", return_value=response
+    ) as urlopen, pytest.raises(ProviderAuthenticationError) as raised:
+        preflight_authentication(
+            secret, "https://api.moonshot.ai/v1", "unavailable-model"
+        )
+
+    message = str(raised.value)
+    assert "unavailable-model" in message
+    assert "kimi-k3" in message
+    assert "kimi-coding-model" in message
+    assert secret not in message
+    assert secret not in caplog.text
+    urlopen.assert_called_once()
 
 
 def test_401_explains_likely_causes_without_disclosing_key(caplog):
@@ -80,7 +112,9 @@ def test_401_explains_likely_causes_without_disclosing_key(caplog):
     with caplog.at_level(logging.INFO), patch(
         "provider_auth.urlopen", side_effect=error
     ), pytest.raises(ProviderAuthenticationError) as raised:
-        preflight_authentication(secret, "https://api.moonshot.ai/v1")
+        preflight_authentication(
+            secret, "https://api.moonshot.ai/v1", "configured-model"
+        )
 
     message = str(raised.value)
     assert "HTTP 401" in message

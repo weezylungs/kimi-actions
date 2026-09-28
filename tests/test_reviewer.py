@@ -178,6 +178,8 @@ class TestReviewerWorkspace:
 
         assert isinstance(create.call_args.kwargs["work_dir"], KaosPath)
         assert str(create.call_args.kwargs["work_dir"]) == str(tmp_path)
+        assert create.call_args.kwargs["model"] == mock_action_config.model
+        assert os.environ["KIMI_MODEL_NAME"] == mock_action_config.model
 
 class TestReviewerDiffProcessing:
     """Test diff processing in Reviewer."""

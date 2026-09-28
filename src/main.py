@@ -636,7 +636,9 @@ def main():
 
     try:
         configure_agent_env(config.kimi_api_key, config.kimi_base_url, config.model)
-        preflight_authentication(config.kimi_api_key, config.kimi_base_url)
+        preflight_authentication(
+            config.kimi_api_key, config.kimi_base_url, config.model
+        )
     except (ValueError, RuntimeError) as exc:
         logger.error("Provider authentication setup failed: %s", exc)
         sys.exit(1)

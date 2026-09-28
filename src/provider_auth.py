@@ -1,5 +1,6 @@
 """Moonshot Open Platform authentication configuration and preflight."""
 
+import json
 import logging
 import os
 from urllib.error import HTTPError, URLError
@@ -16,6 +17,34 @@ SUPPORTED_BASE_URLS = {
 
 class ProviderAuthenticationError(RuntimeError):
     """Raised when Moonshot Open Platform authentication cannot be verified."""
+
+
+def _parse_model_ids(payload: bytes, host: str) -> list[str]:
+    """Parse and validate model IDs from an OpenAI-compatible models response."""
+    try:
+        document = json.loads(payload)
+        entries = document["data"]
+        model_ids = sorted(
+            entry["id"]
+            for entry in entries
+            if isinstance(entry, dict) and isinstance(entry.get("id"), str)
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ProviderAuthenticationError(
+            f"Moonshot models response from {host} was not valid"
+        ) from exc
+    if not model_ids:
+        raise ProviderAuthenticationError(
+            f"Moonshot models response from {host} contained no accessible models"
+        )
+    return model_ids
+
+
+def _safe_model_alternatives(model_ids: list[str], limit: int = 8) -> str:
+    """Format a bounded list of provider-returned Kimi model IDs."""
+    relevant = [model_id for model_id in model_ids if "kimi" in model_id.lower()]
+    alternatives = (relevant or model_ids)[:limit]
+    return ", ".join(alternatives)
 
 
 def normalize_base_url(base_url: str) -> str:
@@ -41,8 +70,10 @@ def configure_agent_env(api_key: str, base_url: str, model: str) -> None:
     os.environ["KIMI_MODEL_NAME"] = model
 
 
-def preflight_authentication(api_key: str, base_url: str, timeout: float = 10.0) -> None:
-    """Verify a Moonshot Open Platform bearer key against its selected region."""
+def preflight_authentication(
+    api_key: str, base_url: str, model: str, timeout: float = 10.0
+) -> list[str]:
+    """Verify a Moonshot Open Platform key and configured model in one request."""
     normalized = normalize_base_url(base_url)
     host = urlparse(normalized).hostname
     logger.info("Checking Moonshot Open Platform authentication at host %s", host)
@@ -59,6 +90,7 @@ def preflight_authentication(api_key: str, base_url: str, timeout: float = 10.0)
                     f"Moonshot authentication preflight failed at {host} "
                     f"with HTTP {response.status}"
                 )
+            model_ids = _parse_model_ids(response.read(), host)
     except HTTPError as exc:
         if exc.code == 401:
             raise ProviderAuthenticationError(
@@ -75,4 +107,16 @@ def preflight_authentication(api_key: str, base_url: str, timeout: float = 10.0)
             f"Could not reach the configured Moonshot host {host} for authentication preflight"
         ) from exc
 
-    logger.info("Moonshot Open Platform authentication succeeded at host %s", host)
+    if model not in model_ids:
+        alternatives = _safe_model_alternatives(model_ids)
+        raise ProviderAuthenticationError(
+            f"Configured Moonshot model {model!r} is not accessible at {host}. "
+            f"Available alternatives: {alternatives}"
+        )
+
+    logger.info(
+        "Moonshot Open Platform authentication and model %s succeeded at host %s",
+        model,
+        host,
+    )
+    return model_ids
