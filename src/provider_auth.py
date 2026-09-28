@@ -19,6 +19,20 @@ class ProviderAuthenticationError(RuntimeError):
     """Raised when Moonshot Open Platform authentication cannot be verified."""
 
 
+def validate_thinking_effort(model: str, thinking_effort: str) -> None:
+    """Enforce the effort contract supported by the pinned legacy Agent SDK."""
+    if thinking_effort != "max":
+        if model == "kimi-k3":
+            raise ValueError(
+                "kimi-k3 thinking_effort must be 'max' in this Action runtime; "
+                "the legacy Kimi Agent SDK does not safely expose graded effort overrides"
+            )
+        raise ValueError(
+            "thinking_effort must be 'max' in this Action runtime; the legacy "
+            "Kimi Agent SDK does not safely expose graded effort overrides"
+        )
+
+
 def _parse_model_ids(payload: bytes, host: str) -> list[str]:
     """Parse and validate model IDs from an OpenAI-compatible models response."""
     try:

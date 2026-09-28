@@ -155,6 +155,7 @@ jobs:
           kimi_api_key: ${{ secrets.KIMI_API_KEY }}
           kimi_base_url: 'https://api.moonshot.ai/v1' # or https://api.moonshot.cn/v1
           model: 'kimi-k3'
+          thinking_effort: 'max'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           auto_review: 'false'
 
@@ -174,6 +175,7 @@ jobs:
           kimi_api_key: ${{ secrets.KIMI_API_KEY }}
           kimi_base_url: 'https://api.moonshot.ai/v1' # or https://api.moonshot.cn/v1
           model: 'kimi-k3'
+          thinking_effort: 'max'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           auto_triage: 'false'
 ```
@@ -220,6 +222,7 @@ Use these commands in Issue comments:
     # Optional
     language: 'en-US'               # Response language: zh-CN, en-US
     model: 'kimi-k3'                # Explicit model ID (default: kimi-k3)
+    thinking_effort: 'max'          # K3 provider default; only supported value
     review_level: 'normal'          # Review strictness: strict, normal, gentle
     max_files: '10'                 # Max files to review
     exclude_patterns: '*.lock,*.min.js'  # File patterns to exclude
@@ -302,6 +305,14 @@ Skills are automatically triggered based on PR code content.
 
 All commands use **Kimi Agent SDK** with the explicitly configured model. The
 provider preflight rejects models that are not accessible to the configured key.
+
+Kimi K3 always thinks, and Moonshot Open Platform defaults its
+`reasoning_effort` to `max`. The pinned Python Agent SDK exposes only a boolean
+thinking switch, not graded effort selection. This Action therefore accepts
+only `thinking_effort: max` and deliberately does not pass `thinking=True`,
+because the legacy runtime maps that boolean override to `high`. By leaving the
+SDK thinking override unset, the K3 request retains the provider's documented
+`max` default.
 
 When PR is too large, the action uses intelligent chunking to prioritize important files.
 

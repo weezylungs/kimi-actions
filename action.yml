@@ -23,6 +23,10 @@ inputs:
     description: 'Explicit Moonshot model ID to use; the provider preflight verifies account access'
     required: false
     default: 'kimi-k3'
+  thinking_effort:
+    description: 'Kimi K3 reasoning effort. This Action currently supports max; K3 provider default is max.'
+    required: false
+    default: 'max'
   review_level:
     description: 'Review strictness (strict, normal, gentle)'
     required: false

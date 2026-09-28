@@ -180,6 +180,7 @@ class TestReviewerWorkspace:
         assert str(create.call_args.kwargs["work_dir"]) == str(tmp_path)
         assert create.call_args.kwargs["model"] == mock_action_config.model
         assert os.environ["KIMI_MODEL_NAME"] == mock_action_config.model
+        assert "thinking" not in create.call_args.kwargs
 
 class TestReviewerDiffProcessing:
     """Test diff processing in Reviewer."""

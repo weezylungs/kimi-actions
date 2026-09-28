@@ -17,6 +17,7 @@ from provider_auth import (
     configure_agent_env,
     normalize_base_url,
     preflight_authentication,
+    validate_thinking_effort,
 )
 
 
@@ -47,6 +48,37 @@ def test_action_config_loads_base_url():
     assert config.kimi_api_key == "provider-key"
     assert config.kimi_base_url == "https://api.moonshot.cn/v1"
     assert config.model == "kimi-k3"
+    assert config.thinking_effort == "max"
+
+
+def test_explicit_max_thinking_effort_is_normalized_and_accepted():
+    with patch.dict(
+        os.environ,
+        {"INPUT_MODEL": "kimi-k3", "INPUT_THINKING_EFFORT": " MAX "},
+        clear=True,
+    ):
+        config = ActionConfig.from_env()
+
+    assert config.thinking_effort == "max"
+    validate_thinking_effort(config.model, config.thinking_effort)
+
+
+def test_explicit_model_override_remains_authoritative_with_max_effort():
+    with patch.dict(
+        os.environ,
+        {"INPUT_MODEL": "account-model", "INPUT_THINKING_EFFORT": "max"},
+        clear=True,
+    ):
+        config = ActionConfig.from_env()
+
+    assert config.model == "account-model"
+    validate_thinking_effort(config.model, config.thinking_effort)
+
+
+@pytest.mark.parametrize("effort", ["low", "high", "medium", ""])
+def test_kimi_k3_rejects_non_max_thinking_effort(effort):
+    with pytest.raises(ValueError, match="must be 'max'.*legacy Kimi Agent SDK"):
+        validate_thinking_effort("kimi-k3", effort)
 
 
 def test_api_key_and_endpoint_are_propagated():
@@ -149,4 +181,31 @@ def test_main_exits_before_event_processing_when_preflight_fails(caplog):
 
     assert raised.value.code == 1
     github_client.assert_not_called()
+    assert config.kimi_api_key not in caplog.text
+
+
+def test_main_rejects_non_max_effort_before_provider_or_event_processing(caplog):
+    import main as main_module
+
+    config = ActionConfig(
+        kimi_api_key="never-log-this-provider-key",
+        kimi_base_url="https://api.moonshot.ai/v1",
+        github_token="github-token",
+        model="kimi-k3",
+        thinking_effort="high",
+    )
+
+    with caplog.at_level(logging.ERROR), patch.object(
+        main_module.ActionConfig, "from_env", return_value=config
+    ), patch.object(
+        main_module, "preflight_authentication"
+    ) as preflight, patch.object(
+        main_module, "GitHubClient"
+    ) as github_client, pytest.raises(SystemExit) as raised:
+        main_module.main()
+
+    assert raised.value.code == 1
+    preflight.assert_not_called()
+    github_client.assert_not_called()
+    assert "thinking_effort must be 'max'" in caplog.text
     assert config.kimi_api_key not in caplog.text
