@@ -154,6 +154,7 @@ jobs:
         with:
           kimi_api_key: ${{ secrets.KIMI_API_KEY }}
           kimi_base_url: 'https://api.moonshot.ai/v1' # or https://api.moonshot.cn/v1
+          model: 'kimi-k3'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           auto_review: 'false'
 
@@ -172,6 +173,7 @@ jobs:
         with:
           kimi_api_key: ${{ secrets.KIMI_API_KEY }}
           kimi_base_url: 'https://api.moonshot.ai/v1' # or https://api.moonshot.cn/v1
+          model: 'kimi-k3'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           auto_triage: 'false'
 ```
@@ -217,7 +219,7 @@ Use these commands in Issue comments:
     
     # Optional
     language: 'en-US'               # Response language: zh-CN, en-US
-    model: 'kimi-k2-thinking'       # Kimi model (default: kimi-k2-thinking)
+    model: 'kimi-k3'                # Explicit model ID (default: kimi-k3)
     review_level: 'normal'          # Review strictness: strict, normal, gentle
     max_files: '10'                 # Max files to review
     exclude_patterns: '*.lock,*.min.js'  # File patterns to exclude
@@ -296,11 +298,10 @@ Skills are automatically triggered based on PR code content.
 
 | Model | Context | Notes |
 |-------|---------|-------|
-| `kimi-k2-thinking` | 256K | Default, best reasoning capability |
-| `kimi-k2-thinking-turbo` | 256K | Faster thinking model |
-| `kimi-k2-turbo-preview` | 256K | Fast, for simple tasks |
+| `kimi-k3` | See provider limits | Default model for repository review |
 
-All commands use **Kimi Agent SDK** with `kimi-k2-thinking` model for best results.
+All commands use **Kimi Agent SDK** with the explicitly configured model. The
+provider preflight rejects models that are not accessible to the configured key.
 
 When PR is too large, the action uses intelligent chunking to prioritize important files.
 

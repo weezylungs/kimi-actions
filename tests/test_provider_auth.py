@@ -46,17 +46,18 @@ def test_action_config_loads_base_url():
 
     assert config.kimi_api_key == "provider-key"
     assert config.kimi_base_url == "https://api.moonshot.cn/v1"
+    assert config.model == "kimi-k3"
 
 
 def test_api_key_and_endpoint_are_propagated():
     with patch.dict(os.environ, {}, clear=True):
         configure_agent_env(
-            "provider-key", "https://api.moonshot.ai/v1", "kimi-k2-thinking"
+            "provider-key", "https://api.moonshot.ai/v1", "kimi-k3"
         )
 
         assert os.environ["KIMI_API_KEY"] == "provider-key"
         assert os.environ["KIMI_BASE_URL"] == "https://api.moonshot.ai/v1"
-        assert os.environ["KIMI_MODEL_NAME"] == "kimi-k2-thinking"
+        assert os.environ["KIMI_MODEL_NAME"] == "kimi-k3"
 
 
 def test_preflight_uses_selected_cn_endpoint():

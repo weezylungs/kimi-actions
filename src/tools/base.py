@@ -52,7 +52,7 @@ class BaseTool(ABC):
         self.skill_manager = SkillManager()
         self.repo_config: Optional[RepoConfig] = None
 
-        # Track actual model used (may change due to fallback)
+        # Track the explicit model; oversized diffs are chunked, not model-switched.
         self.actual_model: str = self.config.model
 
     @property
@@ -130,7 +130,7 @@ class BaseTool(ABC):
         return footer
 
     # Agent SDK configuration
-    AGENT_MODEL = "kimi-k2-thinking"
+    AGENT_MODEL = "kimi-k3"
     def setup_agent_env(self) -> Optional[str]:
         """Setup environment variables for Agent SDK.
         
@@ -288,7 +288,10 @@ class BaseTool(ABC):
             Number of comments posted
         """
         comments = []
-        footer = "\n\n---\n<sub>Powered by [Kimi](https://kimi.moonshot.cn/) | Model: `kimi-k2-thinking`</sub>"
+        footer = (
+            "\n\n---\n<sub>Powered by [Kimi](https://kimi.moonshot.cn/) "
+            f"| Model: `{self.AGENT_MODEL}`</sub>"
+        )
         skipped = []
 
         for s in suggestions:

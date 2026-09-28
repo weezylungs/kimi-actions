@@ -5,7 +5,7 @@ This configuration is set by the Action user in their workflow file:
     with:
       kimi_api_key: ${{ secrets.KIMI_API_KEY }}
       kimi_base_url: https://api.moonshot.ai/v1
-      model: kimi-k2-thinking
+      model: kimi-k3
       review_level: normal
 """
 
@@ -53,7 +53,7 @@ class ActionConfig:
     kimi_api_key: str = ""
     kimi_base_url: str = ""
     github_token: str = ""
-    model: str = "kimi-k2-thinking"
+    model: str = "kimi-k3"
 
     # General settings
     language: str = "en-US"  # zh-CN or en-US
@@ -95,7 +95,7 @@ class ActionConfig:
 
         # General settings
         config.language = os.environ.get("INPUT_LANGUAGE", "en-US")
-        config.model = os.environ.get("INPUT_MODEL", "kimi-k2-thinking")
+        config.model = os.environ.get("INPUT_MODEL", "kimi-k3")
         config.review_level = os.environ.get("INPUT_REVIEW_LEVEL", "normal")
         config.max_files = int(os.environ.get("INPUT_MAX_FILES", "50"))
 
