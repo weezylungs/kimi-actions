@@ -19,7 +19,7 @@ def mock_config():
     """Mock action config."""
     with patch('tools.base.get_action_config') as mock_cfg:
         config = Mock()
-        config.model = "kimi-k2-thinking"
+        config.model = "kimi-k3"
         config.exclude_patterns = []
         mock_cfg.return_value = config
         yield config

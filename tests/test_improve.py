@@ -54,7 +54,7 @@ def mock_action_config():
     """Create mock action config."""
     with patch('tools.base.get_action_config') as mock:
         config = Mock()
-        config.model = "kimi-k2-thinking"
+        config.model = "kimi-k3"
         config.review_level = "normal"
         config.max_files = 50
         config.exclude_patterns = ["*.lock"]

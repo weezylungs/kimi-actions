@@ -77,13 +77,19 @@
 
 ## Quick Start
 
-### 1. Get Kimi API Key
+### 1. Get a Moonshot Open Platform API Key
 
-1. Visit [Moonshot AI Platform](https://platform.moonshot.cn/)
+1. Visit the Moonshot Open Platform for your account region
+   ([global](https://platform.moonshot.ai/) or [CN](https://platform.moonshot.cn/)).
 2. Register/Login
 3. Go to "API Key Management"
 4. Click "Create API Key"
 5. Copy the generated API Key
+
+This Action supports Moonshot Open Platform bearer API keys. Kimi Code or
+Kimi-for-Coding subscription credentials are a different credential product
+and are not supported by this Action's Open Platform `/v1` authentication.
+The Open Platform key and endpoint must belong to the same region.
 
 ### 2. Configure GitHub Secrets
 
@@ -147,6 +153,9 @@ jobs:
       - uses: xiaoju111a/kimi-actions@main
         with:
           kimi_api_key: ${{ secrets.KIMI_API_KEY }}
+          kimi_base_url: 'https://api.moonshot.ai/v1' # or https://api.moonshot.cn/v1
+          model: 'kimi-k3'
+          thinking_effort: 'max'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           auto_review: 'false'
 
@@ -164,6 +173,9 @@ jobs:
       - uses: xiaoju111a/kimi-actions@main
         with:
           kimi_api_key: ${{ secrets.KIMI_API_KEY }}
+          kimi_base_url: 'https://api.moonshot.ai/v1' # or https://api.moonshot.cn/v1
+          model: 'kimi-k3'
+          thinking_effort: 'max'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           auto_triage: 'false'
 ```
@@ -204,11 +216,13 @@ Use these commands in Issue comments:
   with:
     # Required
     kimi_api_key: ${{ secrets.KIMI_API_KEY }}
+    kimi_base_url: 'https://api.moonshot.ai/v1' # or https://api.moonshot.cn/v1
     github_token: ${{ secrets.GITHUB_TOKEN }}
     
     # Optional
     language: 'en-US'               # Response language: zh-CN, en-US
-    model: 'kimi-k2-thinking'       # Kimi model (default: kimi-k2-thinking)
+    model: 'kimi-k3'                # Explicit model ID (default: kimi-k3)
+    thinking_effort: 'max'          # K3 provider default; only supported value
     review_level: 'normal'          # Review strictness: strict, normal, gentle
     max_files: '10'                 # Max files to review
     exclude_patterns: '*.lock,*.min.js'  # File patterns to exclude
@@ -287,11 +301,18 @@ Skills are automatically triggered based on PR code content.
 
 | Model | Context | Notes |
 |-------|---------|-------|
-| `kimi-k2-thinking` | 256K | Default, best reasoning capability |
-| `kimi-k2-thinking-turbo` | 256K | Faster thinking model |
-| `kimi-k2-turbo-preview` | 256K | Fast, for simple tasks |
+| `kimi-k3` | See provider limits | Default model for repository review |
 
-All commands use **Kimi Agent SDK** with `kimi-k2-thinking` model for best results.
+All commands use **Kimi Agent SDK** with the explicitly configured model. The
+provider preflight rejects models that are not accessible to the configured key.
+
+Kimi K3 always thinks, and Moonshot Open Platform defaults its
+`reasoning_effort` to `max`. The pinned Python Agent SDK exposes only a boolean
+thinking switch, not graded effort selection. This Action therefore accepts
+only `thinking_effort: max` and deliberately does not pass `thinking=True`,
+because the legacy runtime maps that boolean override to `high`. By leaving the
+SDK thinking override unset, the K3 request retains the provider's documented
+`max` default.
 
 When PR is too large, the action uses intelligent chunking to prioritize important files.
 

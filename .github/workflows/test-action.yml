@@ -46,6 +46,9 @@ jobs:
         uses: ./
         with:
           kimi_api_key: ${{ secrets.KIMI_API_KEY }}
+          kimi_base_url: 'https://api.moonshot.ai/v1'
+          model: 'kimi-k3'
+          thinking_effort: 'max'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           auto_review: 'false'
 
@@ -66,5 +69,8 @@ jobs:
         uses: ./
         with:
           kimi_api_key: ${{ secrets.KIMI_API_KEY }}
+          kimi_base_url: 'https://api.moonshot.ai/v1'
+          model: 'kimi-k3'
+          thinking_effort: 'max'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           auto_triage: 'false'

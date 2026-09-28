@@ -11,6 +11,8 @@ import re
 import tempfile
 from typing import List, Dict, Optional
 
+from kaos.path import KaosPath
+
 from tools.base import BaseTool
 
 logger = logging.getLogger(__name__)
@@ -186,7 +188,7 @@ IMPORTANT: You MUST output the JSON block above. Do not skip it. Search for rela
 
         try:
             async with await Session.create(
-                work_dir=work_dir,
+                work_dir=KaosPath(work_dir),
                 model=self.AGENT_MODEL,
                 yolo=True,
                 max_steps_per_turn=100,

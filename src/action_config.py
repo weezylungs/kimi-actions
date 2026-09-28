@@ -4,7 +4,9 @@ This configuration is set by the Action user in their workflow file:
   - uses: xiaoju/kimi-actions@v1
     with:
       kimi_api_key: ${{ secrets.KIMI_API_KEY }}
-      model: kimi-k2-thinking
+      kimi_base_url: https://api.moonshot.ai/v1
+      model: kimi-k3
+      thinking_effort: max
       review_level: normal
 """
 
@@ -50,8 +52,10 @@ class ActionConfig:
     """
     # API settings
     kimi_api_key: str = ""
+    kimi_base_url: str = ""
     github_token: str = ""
-    model: str = "kimi-k2-thinking"
+    model: str = "kimi-k3"
+    thinking_effort: str = "max"
 
     # General settings
     language: str = "en-US"  # zh-CN or en-US
@@ -88,11 +92,15 @@ class ActionConfig:
 
         # API keys (from GitHub Actions inputs)
         config.kimi_api_key = os.environ.get("INPUT_KIMI_API_KEY", "")
+        config.kimi_base_url = os.environ.get("INPUT_KIMI_BASE_URL", "")
         config.github_token = os.environ.get("INPUT_GITHUB_TOKEN", "")
 
         # General settings
         config.language = os.environ.get("INPUT_LANGUAGE", "en-US")
-        config.model = os.environ.get("INPUT_MODEL", "kimi-k2-thinking")
+        config.model = os.environ.get("INPUT_MODEL", "kimi-k3")
+        config.thinking_effort = os.environ.get(
+            "INPUT_THINKING_EFFORT", "max"
+        ).strip().lower()
         config.review_level = os.environ.get("INPUT_REVIEW_LEVEL", "normal")
         config.max_files = int(os.environ.get("INPUT_MAX_FILES", "50"))
 

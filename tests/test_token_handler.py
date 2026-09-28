@@ -7,8 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from token_handler import (
-    TokenHandler, TokenStats, DiffChunk,
-    FALLBACK_CHAIN
+    TokenHandler, TokenStats, DiffChunk
 )
 
 
@@ -17,7 +16,7 @@ class TestTokenHandler:
 
     def test_init_default_model(self):
         handler = TokenHandler()
-        assert handler.model == "kimi-k2-turbo-preview"
+        assert handler.model == "kimi-k3"
         assert handler.model_config.max_context == 256000
 
     def test_init_custom_model(self):
@@ -95,15 +94,15 @@ class TestTokenHandler:
 
     def test_get_fallback_model_small(self):
         handler = TokenHandler()
-        # Small token count should return primary model
+        # Explicit model selection is authoritative; no fallback is selected.
         model = handler.get_fallback_model(1000)
-        assert model == "kimi-k2-turbo-preview"
+        assert model is None
 
     def test_get_fallback_model_medium(self):
         handler = TokenHandler()
-        # Medium token count might need fallback
+        # Large input is chunked rather than switching models.
         model = handler.get_fallback_model(200000)
-        assert model in FALLBACK_CHAIN
+        assert model is None
 
     def test_get_fallback_model_too_large(self):
         handler = TokenHandler()

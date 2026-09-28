@@ -4,6 +4,8 @@ import asyncio
 import logging
 import tempfile
 
+from kaos.path import KaosPath
+
 from tools.base import BaseTool, DIFF_LIMIT_ASK
 
 logger = logging.getLogger(__name__)
@@ -106,7 +108,7 @@ Be concise and helpful.
 
         try:
             async with await Session.create(
-                work_dir=work_dir,
+                work_dir=KaosPath(work_dir),
                 model=self.AGENT_MODEL,
                 yolo=True,
                 max_steps_per_turn=100,

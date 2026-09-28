@@ -74,7 +74,7 @@ def mock_action_config():
     """Create mock action config."""
     with patch('tools.base.get_action_config') as mock:
         config = Mock()
-        config.model = "kimi-k2-turbo-preview"
+        config.model = "kimi-k3"
         config.review_level = "normal"
         config.max_files = 10
         config.exclude_patterns = ["*.lock"]
@@ -132,9 +132,8 @@ suggestions:
     label: security
     severity: critical
 ```"""
-        with patch('subprocess.run') as mock_run, \
+        with patch.object(reviewer, '_prepare_review_workspace'), \
              patch('asyncio.run', return_value=mock_agent_response):
-            mock_run.return_value = Mock(returncode=0)
             result = reviewer.run("owner/repo", 42)
 
         # Result could be empty (inline posted) or summary (fallback)

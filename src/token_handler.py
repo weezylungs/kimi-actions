@@ -36,27 +36,32 @@ class ModelConfig:
 
 # Kimi model configurations
 KIMI_MODELS: Dict[str, ModelConfig] = {
+    "kimi-k3": ModelConfig(
+        name="kimi-k3",
+        max_context=256000,
+        max_output=8192,
+        tier=ModelTier.PRIMARY,
+        description="Kimi K3"
+    ),
     "kimi-k2-0905-preview": ModelConfig(
         name="kimi-k2-0905-preview",
         max_context=256000,
         max_output=8192,
         tier=ModelTier.PRIMARY,
-        description="Kimi K2 most powerful version"
+        description="Legacy Kimi K2 model"
     ),
     "kimi-k2-turbo-preview": ModelConfig(
         name="kimi-k2-turbo-preview",
         max_context=256000,
         max_output=8192,
         tier=ModelTier.PRIMARY,
-        description="Kimi K2 high-speed version (recommended)"
+        description="Legacy Kimi K2 high-speed model"
     ),
 }
 
-# No fallback needed - K2 models have 256K context
-# If diff is too large, use intelligent chunking instead
-FALLBACK_CHAIN: List[str] = [
-    "kimi-k2-turbo-preview",
-]
+# Do not silently substitute a different model. If the diff is too large,
+# use intelligent chunking while retaining the explicitly configured model.
+FALLBACK_CHAIN: List[str] = []
 
 
 @dataclass
@@ -117,7 +122,7 @@ class TokenHandler:
 
     def __init__(
         self,
-        model: str = "kimi-k2-turbo-preview",
+        model: str = "kimi-k3",
         config: Optional[TokenHandlerConfig] = None
     ) -> None:
         """Initialize token handler.
@@ -127,7 +132,7 @@ class TokenHandler:
             config: Token handler configuration (uses defaults if None)
         """
         self.model = model
-        self.model_config = KIMI_MODELS.get(model, KIMI_MODELS["kimi-k2-turbo-preview"])
+        self.model_config = KIMI_MODELS.get(model, KIMI_MODELS["kimi-k3"])
         self.config = config or DEFAULT_TOKEN_CONFIG
 
     @property
@@ -518,7 +523,7 @@ class DiffChunker:
         return "\n\n".join(parts)
 
 
-def select_model_for_diff(diff: str, preferred_model: str = "kimi-k2-turbo-preview") -> Tuple[str, int]:
+def select_model_for_diff(diff: str, preferred_model: str = "kimi-k3") -> Tuple[str, int]:
     """Select appropriate model based on diff size.
     
     Args:

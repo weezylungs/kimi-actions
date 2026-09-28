@@ -3,9 +3,10 @@
 import asyncio
 import logging
 import tempfile
-
-import yaml
 from typing import List, Tuple
+
+from kaos.path import KaosPath
+import yaml
 
 from tools.base import BaseTool, DIFF_LIMIT_DESCRIBE
 
@@ -104,7 +105,7 @@ files:
         try:
             with tempfile.TemporaryDirectory() as work_dir:
                 async with await Session.create(
-                    work_dir=work_dir,
+                    work_dir=KaosPath(work_dir),
                     model=self.AGENT_MODEL,
                     yolo=True,
                     max_steps_per_turn=100,

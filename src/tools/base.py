@@ -11,8 +11,10 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple, List
 
+from kaos.path import KaosPath
 from action_config import get_action_config
 from github_client import GitHubClient
+from provider_auth import configure_agent_env
 from token_handler import TokenHandler, DiffChunker, select_model_for_diff, DiffChunk
 from skill_loader import SkillManager, Skill
 from repo_config import load_repo_config, RepoConfig
@@ -37,6 +39,7 @@ class BaseTool(ABC):
     def __init__(self, github: GitHubClient):
         self.github = github
         self.config = get_action_config()
+        self.AGENT_MODEL = self.config.model
 
         # Token handling
         self.token_handler = TokenHandler(self.config.model)
@@ -49,7 +52,7 @@ class BaseTool(ABC):
         self.skill_manager = SkillManager()
         self.repo_config: Optional[RepoConfig] = None
 
-        # Track actual model used (may change due to fallback)
+        # Track the explicit model; oversized diffs are chunked, not model-switched.
         self.actual_model: str = self.config.model
 
     @property
@@ -127,22 +130,23 @@ class BaseTool(ABC):
         return footer
 
     # Agent SDK configuration
-    AGENT_MODEL = "kimi-k2-thinking"
-    AGENT_BASE_URL = "https://api.moonshot.cn/v1"
-
+    AGENT_MODEL = "kimi-k3"
     def setup_agent_env(self) -> Optional[str]:
         """Setup environment variables for Agent SDK.
         
         Returns:
             API key if available, None otherwise.
         """
-        api_key = os.environ.get("KIMI_API_KEY") or os.environ.get("INPUT_KIMI_API_KEY")
+        configured_key = getattr(self.config, "kimi_api_key", "")
+        api_key = configured_key if isinstance(configured_key, str) else ""
+        api_key = api_key or os.environ.get("KIMI_API_KEY") or os.environ.get("INPUT_KIMI_API_KEY")
         if not api_key:
             return None
-        
-        os.environ["KIMI_API_KEY"] = api_key
-        os.environ["KIMI_BASE_URL"] = self.AGENT_BASE_URL
-        os.environ["KIMI_MODEL_NAME"] = self.AGENT_MODEL
+
+        configured_url = getattr(self.config, "kimi_base_url", "")
+        base_url = configured_url if isinstance(configured_url, str) else ""
+        base_url = base_url or os.environ.get("INPUT_KIMI_BASE_URL", "")
+        configure_agent_env(api_key, base_url, self.AGENT_MODEL)
         return api_key
 
     @staticmethod
@@ -240,7 +244,7 @@ class BaseTool(ABC):
         text_parts = []
         try:
             async with await Session.create(
-                work_dir=work_dir,
+                work_dir=KaosPath(work_dir),
                 model=self.AGENT_MODEL,
                 yolo=True,
                 max_steps_per_turn=100,
@@ -284,7 +288,10 @@ class BaseTool(ABC):
             Number of comments posted
         """
         comments = []
-        footer = "\n\n---\n<sub>Powered by [Kimi](https://kimi.moonshot.cn/) | Model: `kimi-k2-thinking`</sub>"
+        footer = (
+            "\n\n---\n<sub>Powered by [Kimi](https://kimi.moonshot.cn/) "
+            f"| Model: `{self.AGENT_MODEL}`</sub>"
+        )
         skipped = []
 
         for s in suggestions:

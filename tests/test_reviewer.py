@@ -1,9 +1,12 @@
 """Tests for Reviewer tool."""
 
-import pytest
-from unittest.mock import Mock, patch
-import sys
+import asyncio
 import os
+import sys
+from unittest.mock import AsyncMock, Mock, patch
+
+from kaos.path import KaosPath
+import pytest
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -64,7 +67,7 @@ def mock_action_config():
     """Create mock action config."""
     with patch('tools.base.get_action_config') as mock:
         config = Mock()
-        config.model = "kimi-k2-thinking"
+        config.model = "kimi-k3"
         config.review_level = "normal"
         config.max_files = 50
         config.exclude_patterns = ["*.lock"]
@@ -98,6 +101,86 @@ class TestReviewerBasic:
         
         assert reviewer.skill_name == "code-review"
 
+
+class TestReviewerWorkspace:
+    """Test preparation of the authenticated, isolated review workspace."""
+
+    def test_prepare_review_workspace_copies_exact_head(
+        self, mock_action_config, tmp_path
+    ):
+        from tools.reviewer import Reviewer
+
+        workspace = tmp_path / "checkout"
+        destination = tmp_path / "review"
+        (workspace / ".git" / "refs" / "heads").mkdir(parents=True)
+        (workspace / ".git" / "HEAD").write_text(
+            "ref: refs/heads/feature\n", encoding="utf-8"
+        )
+        (workspace / ".git" / "refs" / "heads" / "feature").write_text(
+            "abc123\n", encoding="utf-8"
+        )
+        (workspace / "private-source.py").write_text("secret = True\n", encoding="utf-8")
+
+        reviewer = Reviewer(MockGitHubClient())
+        with patch.dict(os.environ, {"GITHUB_WORKSPACE": str(workspace)}):
+            reviewer._prepare_review_workspace(str(destination), "abc123")
+
+        assert (destination / "private-source.py").read_text(encoding="utf-8") == (
+            "secret = True\n"
+        )
+        assert (destination / ".git" / "HEAD").is_file()
+
+    def test_prepare_review_workspace_rejects_wrong_head(
+        self, mock_action_config, tmp_path
+    ):
+        from tools.reviewer import Reviewer
+
+        workspace = tmp_path / "checkout"
+        destination = tmp_path / "review"
+        (workspace / ".git").mkdir(parents=True)
+        (workspace / ".git" / "HEAD").write_text("wrong-sha\n", encoding="utf-8")
+
+        reviewer = Reviewer(MockGitHubClient())
+        with patch.dict(os.environ, {"GITHUB_WORKSPACE": str(workspace)}):
+            with pytest.raises(RuntimeError, match="does not match PR head"):
+                reviewer._prepare_review_workspace(str(destination), "abc123")
+
+        assert not destination.exists()
+
+    def test_run_agent_review_passes_kaos_path(self, mock_action_config, tmp_path):
+        from tools.reviewer import Reviewer
+
+        session = AsyncMock()
+        session.__aenter__.return_value = session
+        session.__aexit__.return_value = None
+
+        async def no_messages(_prompt):
+            if False:
+                yield None
+
+        session.prompt = no_messages
+        reviewer = Reviewer(MockGitHubClient())
+
+        with patch.dict(
+            os.environ,
+            {
+                "KIMI_API_KEY": "test-key",
+                "INPUT_KIMI_BASE_URL": "https://api.moonshot.ai/v1",
+            },
+        ), patch(
+            "kimi_agent_sdk.Session.create", return_value=session
+        ) as create:
+            asyncio.run(
+                reviewer._run_agent_review(
+                    str(tmp_path), "instructions", "title", "feature -> main", "diff"
+                )
+            )
+
+        assert isinstance(create.call_args.kwargs["work_dir"], KaosPath)
+        assert str(create.call_args.kwargs["work_dir"]) == str(tmp_path)
+        assert create.call_args.kwargs["model"] == mock_action_config.model
+        assert os.environ["KIMI_MODEL_NAME"] == mock_action_config.model
+        assert "thinking" not in create.call_args.kwargs
 
 class TestReviewerDiffProcessing:
     """Test diff processing in Reviewer."""
@@ -169,9 +252,8 @@ suggestions:
         
         response = "not valid yaml"
         
-        suggestions = reviewer._parse_suggestions(response)
-        
-        assert len(suggestions) == 0
+        with pytest.raises(RuntimeError, match="Failed to parse Kimi review response"):
+            reviewer._parse_suggestions(response)
     
     def test_parse_suggestions_empty(self, mock_action_config):
         """Test parsing empty suggestions."""
@@ -302,26 +384,6 @@ suggestions: []
         assert "Pull request overview" in summary
         assert "Good PR" in summary
     
-    def test_format_fallback(self, mock_action_config):
-        """Test fallback formatting."""
-        from tools.reviewer import Reviewer
-        
-        github = MockGitHubClient()
-        reviewer = Reviewer(github)
-        
-        response = """```yaml
-summary: "No issues found"
-score: 95
-suggestions: []
-```"""
-        
-        result = reviewer._format_fallback(response, current_sha="abc123")
-        
-        assert "No issues found" in result
-        assert "95" in result
-        assert "abc123" in result
-
-
 class TestReviewerScripts:
     """Test script execution."""
     
@@ -349,7 +411,7 @@ class TestReviewerScripts:
         skill = Mock()
         skill.instructions = "Review the code carefully"
         
-        prompt = reviewer._build_system_prompt(skill, "", "diff")
+        prompt = reviewer._build_system_prompt(skill, "")
         
         assert "Review the code carefully" in prompt
         assert "Review Level" in prompt
@@ -397,10 +459,8 @@ class TestReviewerIntegration:
         reviewer.load_context = Mock()
         reviewer.get_skill = Mock(return_value=None)
         
-        result = reviewer.run("owner/repo", 123)
-        
-        assert "Error" in result
-        assert "skill not found" in result.lower()
+        with pytest.raises(RuntimeError, match="skill not found"):
+            reviewer.run("owner/repo", 123)
     
     def test_run_success_with_mock_agent(self, mock_action_config):
         """Test successful run with mocked agent."""
@@ -416,8 +476,8 @@ class TestReviewerIntegration:
         skill.scripts = {}
         reviewer.get_skill = Mock(return_value=skill)
         
-        # Mock clone_repo
-        with patch.object(reviewer, 'clone_repo', return_value=True):
+        # Mock workspace preparation; its exact-SHA behavior is tested separately.
+        with patch.object(reviewer, '_prepare_review_workspace'):
             # Mock asyncio.run to return YAML response
             with patch('asyncio.run') as mock_asyncio:
                 mock_asyncio.return_value = """```yaml
